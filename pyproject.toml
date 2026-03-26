@@ -1,0 +1,5 @@
+[project]
+name = "hexagone-2b-2insi-2026-tp3"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
