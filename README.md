@@ -9,3 +9,9 @@ Modifier la version de Python utilisée par défaut avec
 ```bash
 uv python pin 3.12
 ```
+
+Télécharger le fichier brut des gitignore
+
+```bash
+wget https://raw.githubusercontent.com/github/gitignore/refs/heads/main/Python.gitignore
+```
