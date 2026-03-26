@@ -31,6 +31,7 @@ class GameBoard:
 @dataclass
 class GameLibrary:
     gameboards: set[GameBoard] = field(default_factory=set)
+    should_continue : bool = field(default=True)        
 
     def create_new_gameboard(self):
         title = input('Title: ')
@@ -45,6 +46,9 @@ class GameLibrary:
     def list_gameboards(self):
         print(self.gameboards)
         
+    def should_exit(self):
+        self.should_continue = False
+                
 if __name__ == '__main__':
     
     #TODO: ask user action and do it
@@ -53,9 +57,10 @@ if __name__ == '__main__':
         'h': lambda : print('Help'),
         'c': gl.create_new_gameboard,
         'd': gl.delete_gameboard,
-        'l': gl.list_gameboards
+        'l': gl.list_gameboards,
+        'q': gl.should_exit
     }
-    while True:
+    while gl.should_continue:
         input_action = input('Action: ')
         actions[input_action]()
         
