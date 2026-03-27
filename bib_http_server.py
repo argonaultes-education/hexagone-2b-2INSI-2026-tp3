@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from http.server import HTTPServer, BaseHTTPRequestHandler, SimpleHTTPRequestHandler, HTTPStatus
+from http.server import HTTPServer, BaseHTTPRequestHandler, HTTPStatus
 
 
 class Singleton(type):
