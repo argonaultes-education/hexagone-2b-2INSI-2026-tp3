@@ -1,9 +1,10 @@
 import socketserver
 import json
 from dataclasses import dataclass, field
+import sqlite3
 
 #https://docs.python.org/3/library/sqlite3.html
-#1 point bonus pour tous ceux qui parviennet à implémenter la persistance de données via SQLite
+#1 point bonus pour tous ceux qui parviennent à implémenter la persistance de données via SQLite
 
 class Singleton(type):
     
@@ -14,24 +15,13 @@ class Singleton(type):
             cls.__instance[cls] = super().__call__(*args, **kwargs)
         return cls.__instance[cls]
 
-class GameBoardSequence(metaclass=Singleton):
-    def __init__(self):
-        self.__next_id = 0
-    
-    @property
-    def next_id(self):
-        self.__next_id += 1
-        return self.__next_id
 
 @dataclass(unsafe_hash=True)
 class GameBoard:
-    id: int = field(init=False)
+    id: int = field(default=None)
     title: str
     author: str
     price: float
-    
-    def __post_init__(self):
-        self.id = GameBoardSequence().next_id
         
     def to_json(self):
         return {
@@ -41,26 +31,42 @@ class GameBoard:
             'price': self.price
         }
         
-@dataclass
 class GameLibrary(metaclass=Singleton):
-    gameboards: set[GameBoard] = field(default_factory=set)       
 
+    def __init__(self):
+        self.__path_to_db = 'gameboard.db'
+        self.__set_cursor()
+        self.cur.execute("CREATE TABLE IF NOT EXISTS gameboards(id integer primary key, title text, author text, price float)")
+        
+    def commit(self):
+        self.__con.commit()
+                
+    def __set_cursor(self):
+        self.__con = sqlite3.connect(self.__path_to_db)
+        self.cur = self.__con.cursor()
+        
     def create_new_gameboard(self, msg):
         title = msg['title']
         author = msg['author']
         price = msg['price']
         gameboard = GameBoard(author=author, title=title, price=price)
-        self.gameboards.add(gameboard)
+        self.__set_cursor()
+        res = self.cur.execute('INSERT INTO gameboards (title, author, price) VALUES (?, ?, ?) RETURNING id', (title, author, price))
+        gameboard.id = res.fetchone()[0]
         return gameboard.to_json()
 
     def delete_gameboard(self, msg):
         id_to_delete = msg['id_to_delete']
-        self.gameboards = set(filter(lambda gameboard: id_to_delete != gameboard.id, self.gameboards))
+        self.__set_cursor()
+        self.cur.execute('DELETE FROM gameboards WHERE id = ?', (id_to_delete,))
+        self.commit()
         return {'status': 'OK'}
 
     def list_gameboards(self, msg):
-        return list(map(lambda x: x.to_json(), self.gameboards))
-           
+        self.__set_cursor()
+        res = self.cur.execute('SELECT id, title, author, price FROM gameboards')
+        list_games = list(map(lambda t: GameBoard(id=t[0], title=t[1], author=t[2], price=t[3]).to_json(), res.fetchall()))
+        return list_games
 
 class BibHandler(socketserver.BaseRequestHandler):
     """
