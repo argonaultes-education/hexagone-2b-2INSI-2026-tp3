@@ -66,4 +66,9 @@ if __name__ == '__main__':
         msg_json = actions[input_action]()
         if msg_json is not None:
             result_str = send_message(msg_json)
-            print(json.loads(result_str))
+            result_json = None
+            try:
+                result_json = json.loads(result_str)
+            except:
+                ...
+            print(result_json)

@@ -63,4 +63,3 @@ if __name__ == '__main__':
     while gl.should_continue:
         input_action = input('Action: ')
         actions[input_action]()
-        
