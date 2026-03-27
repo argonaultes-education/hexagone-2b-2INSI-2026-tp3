@@ -40,7 +40,7 @@ class GameBoard(Base):
 class GameLibrary(metaclass=Singleton):
     
     def __init__(self):
-        self.__engine = create_engine('sqlite:///gameboard.db', echo=True)
+        self.__engine = create_engine('postgresql+psycopg2://postgres:password@localhost:5432/gameboard', echo=True)
         Base.metadata.create_all(self.__engine)
 
     def create_new_gameboard(self, msg):
