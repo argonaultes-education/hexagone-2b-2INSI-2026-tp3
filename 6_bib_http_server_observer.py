@@ -61,18 +61,19 @@ class GameBoard(Base):
 
 def notify_decorator(func):
     def inner_func(*inner_args, **inner_kwargs):
-        func(*inner_args, **inner_kwargs)
+        result = func(*inner_args, **inner_kwargs)
         
         gl = GameLibrary()
         gl.notify_subscribers(func.__name__)
+        return result
     return inner_func
 
 #add a new feature with the design pattern decorator
-        
+
 class GameLibrary(metaclass=Singleton):
     
     def __init__(self):
-        self.__engine = create_engine('postgresql+psycopg2://postgres:password@localhost:5432/gameboard', echo=True)
+        self.__engine = create_engine('postgresql+psycopg2://postgres:password@localhost:5432/gameboard', pool_size=10, echo=True)
         Base.metadata.create_all(self.__engine)
         
     def subscribe(self, msg):
@@ -107,6 +108,7 @@ class GameLibrary(metaclass=Singleton):
         gameboard_to_delete = session.scalar(req)
         session.delete(gameboard_to_delete)
         session.commit()
+        session.close()
         return {'status': 'OK'}
 
     def list_gameboards(self):
@@ -115,6 +117,7 @@ class GameLibrary(metaclass=Singleton):
         result = []
         for gameboard in session.scalars(statement):
             result.append(gameboard.to_json())
+        session.close()
         return result
     
     # put into thread to avoid to wait
@@ -177,6 +180,7 @@ class BibHttpHandler(BaseHTTPRequestHandler):
         length = self.headers.get('Content-Length')
         msg = self.rfile.read(int(length))
         gl = GameLibrary()
+        print(msg)
         result = gl.delete_gameboard(json.loads(msg))
         result_json = self.set_header(result)
         self.wfile.write(result_json.encode('utf-8'))
