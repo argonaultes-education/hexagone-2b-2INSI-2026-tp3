@@ -4,7 +4,7 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import MappedAsDataclass
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
-from sqlalchemy import String, Float
+from sqlalchemy import String, Float, Integer
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -27,6 +27,12 @@ class Base(MappedAsDataclass, DeclarativeBase):
 # * port
 # * protocol (http)
 
+class Subscriber(Base):
+    __tablename__ = 'subscribers'
+    id: Mapped[int] = mapped_column(init=False, primary_key=True, autoincrement=True)
+    address: Mapped[str] = mapped_column(String(15))
+    port: Mapped[int] = mapped_column(Integer)
+    #TODO constraint to check port > 0
 
 
 class GameBoard(Base):
