@@ -8,6 +8,7 @@ from sqlalchemy import String, Float, Integer
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+import requests
 
 class Singleton(type):
     
@@ -33,6 +34,12 @@ class Subscriber(Base):
     address: Mapped[str] = mapped_column(String(15))
     port: Mapped[int] = mapped_column(Integer)
     #TODO constraint to check port > 0
+    
+    def to_json(self):
+        return {
+            'address': self.address,
+            'port': self.port
+        }
 
 
 class GameBoard(Base):
@@ -58,6 +65,17 @@ class GameLibrary(metaclass=Singleton):
     def __init__(self):
         self.__engine = create_engine('postgresql+psycopg2://postgres:password@localhost:5432/gameboard', echo=True)
         Base.metadata.create_all(self.__engine)
+        
+    def subscribe(self, msg):
+        client_address = msg['address']
+        client_port = msg['port']
+        result = None
+        with Session(self.__engine) as session:
+            subscriber = Subscriber(address=client_address, port=client_port)
+            session.add(subscriber)
+            session.commit()
+            result = subscriber.to_json()
+        return result
 
     def create_new_gameboard(self, msg):
         title = msg['title']
@@ -87,8 +105,22 @@ class GameLibrary(metaclass=Singleton):
         for gameboard in session.scalars(statement):
             result.append(gameboard.to_json())
         return result
+    
+    # put into thread to avoid to wait
+    def notify_subscribers(self):
+        session = Session(self.__engine)
+        statement = select(Subscriber)
+        for subscriber in session.scalars(statement):
+            target_address = subscriber.address
+            target_port = subscriber.port
+            requests.request(method="GET", url=f'http://{target_address}:{target_port}')
 
-
+def notify_decorator(func, *args, **kwargs):
+    def inner_func():
+        func(*args, **kwargs)
+        gl = GameLibrary()
+        gl.notify_subscribers()
+    return inner_func
 
 class BibHttpHandler(BaseHTTPRequestHandler):
     
@@ -108,6 +140,8 @@ class BibHttpHandler(BaseHTTPRequestHandler):
     
     # list the created gameboards
     def do_GET(self):
+        print(f'Path: {self.path}')
+        print(f'Request: {self.requestline}')
         gl = GameLibrary()
         result = gl.list_gameboards()
         result_json = self.set_header(result)
@@ -115,21 +149,28 @@ class BibHttpHandler(BaseHTTPRequestHandler):
         
         
     # create a gameboard
+    @notify_decorator
     def do_POST(self):
+        path = self.path
         length = self.headers.get('Content-Length')
         msg = self.rfile.read(int(length))
+        msg_obj = json.loads(msg)
         gl = GameLibrary()
-        result = gl.create_new_gameboard(json.loads(msg))
+        if path == '/subscribe':
+            result = gl.subscribe(msg_obj)
+        else:
+            result = gl.create_new_gameboard(msg_obj)
         result_json = self.set_header(result)
         self.wfile.write(result_json.encode('utf-8'))
         
     # delete a gameboard
+    @notify_decorator
     def do_DELETE(self):
         length = self.headers.get('Content-Length')
         msg = self.rfile.read(int(length))
         gl = GameLibrary()
         result = gl.delete_gameboard(json.loads(msg))
-        result_json = self.set_header(result)        
+        result_json = self.set_header(result)
         self.wfile.write(result_json.encode('utf-8'))
     
 
