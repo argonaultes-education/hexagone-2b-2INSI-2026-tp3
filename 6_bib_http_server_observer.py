@@ -22,7 +22,12 @@ class Base(MappedAsDataclass, DeclarativeBase):
     ...
 
 #TODO
-# client subscribed stored in a table
+# client subscribed stored in a table :
+# * address
+# * port
+# * protocol (http)
+
+
 
 class GameBoard(Base):
     __tablename__ = 'gameboards'
