@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 import requests
+import time
 
 class Singleton(type):
     
@@ -58,6 +59,14 @@ class GameBoard(Base):
         }
 
 
+def notify_decorator(func):
+    def inner_func(*inner_args, **inner_kwargs):
+        func(*inner_args, **inner_kwargs)
+        
+        gl = GameLibrary()
+        gl.notify_subscribers(func.__name__)
+    return inner_func
+
 #add a new feature with the design pattern decorator
         
 class GameLibrary(metaclass=Singleton):
@@ -77,6 +86,7 @@ class GameLibrary(metaclass=Singleton):
             result = subscriber.to_json()
         return result
 
+    @notify_decorator
     def create_new_gameboard(self, msg):
         title = msg['title']
         author = msg['author']
@@ -89,6 +99,7 @@ class GameLibrary(metaclass=Singleton):
             result = gameboard.to_json()
         return result
 
+    @notify_decorator
     def delete_gameboard(self, msg):
         id_to_delete = msg['id_to_delete']
         session = Session(self.__engine)
@@ -107,20 +118,19 @@ class GameLibrary(metaclass=Singleton):
         return result
     
     # put into thread to avoid to wait
-    def notify_subscribers(self):
+    def notify_subscribers(self, event):
         session = Session(self.__engine)
         statement = select(Subscriber)
         for subscriber in session.scalars(statement):
             target_address = subscriber.address
             target_port = subscriber.port
-            requests.request(method="GET", url=f'http://{target_address}:{target_port}')
+            try:
+                requests.request(method="POST", url=f'http://{target_address}:{target_port}', json={'event': event})
+                time.sleep(30)
+            finally:
+                print('notification sent')
 
-def notify_decorator(func, *args, **kwargs):
-    def inner_func():
-        func(*args, **kwargs)
-        gl = GameLibrary()
-        gl.notify_subscribers()
-    return inner_func
+
 
 class BibHttpHandler(BaseHTTPRequestHandler):
     
@@ -149,7 +159,6 @@ class BibHttpHandler(BaseHTTPRequestHandler):
         
         
     # create a gameboard
-    @notify_decorator
     def do_POST(self):
         path = self.path
         length = self.headers.get('Content-Length')
@@ -164,7 +173,6 @@ class BibHttpHandler(BaseHTTPRequestHandler):
         self.wfile.write(result_json.encode('utf-8'))
         
     # delete a gameboard
-    @notify_decorator
     def do_DELETE(self):
         length = self.headers.get('Content-Length')
         msg = self.rfile.read(int(length))
