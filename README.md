@@ -27,3 +27,17 @@ Installer les dépendances
 ```bash
 uv add psycopg2-binary
 ```
+
+## gRPC
+
+Installer les modules gRPC
+
+```bash
+uv add grpcio grpcio-tools
+```
+
+Générer le code python à partir du fichier `gameboard.proto`
+
+```bash
+uv run python -m grpc_tools.protoc -I. --python_out=. --pyi_out=. --grpc_python_out=. gameboard.proto
+```

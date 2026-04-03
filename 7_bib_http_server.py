@@ -8,6 +8,9 @@ from sqlalchemy import String, Float
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+import grpc
+from gameboard_pb2 import ClientSubscriber, EventNotification
+from gameboard_pb2_grpc import SubscribeServiceStub
 
 class Singleton(type):
     
@@ -54,8 +57,14 @@ class GameLibrary(metaclass=Singleton):
         Base.metadata.create_all(self.__engine)
         
     def subscribe(self, msg):
-        #TODO use stub
-        ...
+        with grpc.insecure_channel("localhost:50051") as channel:
+            stub = SubscribeServiceStub(channel)
+            response = stub.Subscribe(ClientSubscriber(ip=msg['address'], port=msg['port']))
+        return {
+            'id': response.id,
+            'ip': response.ip,
+            'port': response.port
+        }
 
     @notify_decorator
     def create_new_gameboard(self, msg):
@@ -91,9 +100,12 @@ class GameLibrary(metaclass=Singleton):
         return result
     
     def notify_subscribers(self, event):
-        #TODO: use stub
-        ...
-
+        with grpc.insecure_channel("localhost:50051") as channel:
+            stub = SubscribeServiceStub(channel)
+            response = stub.Notify(EventNotification(event=event))
+        return {
+            'status': response.status
+        }
 
 
 class BibHttpHandler(BaseHTTPRequestHandler):
